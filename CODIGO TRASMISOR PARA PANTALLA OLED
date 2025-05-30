@@ -1,0 +1,74 @@
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <DHT.h>
+
+// Configuración del módulo NRF24L01
+#define CE_PIN 10   // Pin CE del NRF24L01
+#define CSN_PIN 9   // Pin CSN del NRF24L01
+RF24 radio(CE_PIN, CSN_PIN);
+
+// Configuración del sensor DHT11
+#define DHTPIN 2    // Pin de datos del DHT11
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Dirección de comunicación (debe coincidir con el receptor)
+const byte address[6] = "00001";
+
+// Estructura para los datos (opcional, puedes enviar solo el float)
+struct SensorData {
+  float temperature;
+  // float humidity; // Descomenta si quieres enviar humedad también
+};
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Iniciando transmisor...");
+  
+  // Inicializar el sensor DHT
+  dht.begin();
+  delay(1000); // Espera para estabilizar el sensor
+
+  // Inicializar el módulo de radio
+  if (!radio.begin()) {
+    Serial.println("Error al iniciar el módulo NRF24L01");
+    while(1);
+  }
+  
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_MAX);  // Máxima potencia para mejor alcance
+  radio.setDataRate(RF24_250KBPS); // Velocidad más estable
+  radio.stopListening();
+  
+  Serial.println("Transmisor listo");
+  Serial.println("Enviando datos...");
+}
+
+void loop() {
+  // Leer temperatura del sensor
+  float temp = dht.readTemperature();
+  
+  // Verificar si la lectura es válida
+  if (!isnan(temp)) {
+    // Opción 1: Enviar solo el valor float
+    bool enviado = radio.write(&temp, sizeof(temp));
+    
+    // Opción 2: Usar estructura de datos (descomenta las líneas relacionadas)
+    // SensorData datos;
+    // datos.temperature = temp;
+    // datos.humidity = dht.readHumidity();
+    // bool enviado = radio.write(&datos, sizeof(datos));
+    
+    // Mostrar información por serial
+    Serial.print("Temperatura enviada: ");
+    Serial.print(temp, 1);
+    Serial.print("°C - ");
+    Serial.println(enviado ? "Éxito" : "Falló");
+  } else {
+    Serial.println("Error al leer el sensor DHT11");
+  }
+  
+  delay(2000); // Esperar 2 segundos entre envíos
+}
