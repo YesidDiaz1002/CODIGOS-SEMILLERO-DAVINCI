@@ -1,0 +1,45 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <DHT.h>
+
+#define DHTPIN 2       // DHT11 en D2
+#define DHTTYPE DHT11  // Tipo de sensor
+
+DHT dht(DHTPIN, DHTTYPE);
+RF24 radio(10, 9);      // CE=7, CSN=8 (pines comunes en Nano RF)
+
+const byte address[6] = "12345";  // Dirección de comunicación
+
+struct DataPackage {
+  float temperature;
+  float humidity;
+};
+
+DataPackage data;
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_MIN);  // Ajusta según distancia (MIN, LOW, HIGH, MAX)
+  radio.stopListening();          // Modo transmisor
+}
+
+void loop() {
+  data.humidity = dht.readHumidity();
+  data.temperature = dht.readTemperature();
+
+  if (isnan(data.humidity) || isnan(data.temperature)) {
+    Serial.println("Error leyendo DHT11!");
+  } else {
+    radio.write(&data, sizeof(data));  // Envía datos
+    Serial.print("Enviado - Temp: ");
+    Serial.print(data.temperature);
+    Serial.print("°C, Hum: ");
+    Serial.print(data.humidity);
+    Serial.println("%");
+  }
+  delay(2000);  // Espera 2 segundos
+}
